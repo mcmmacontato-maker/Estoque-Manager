@@ -24,6 +24,22 @@ npm install
 npm run dev
 ```
 
+## Testes
+```powershell
+cd backend
+dotnet test        # 25 testes de integração (CRUD, validação, concorrência, segurança)
+```
+
+## Segurança
+- Validação de entrada com DTO (sem *mass assignment*) e respostas `ProblemDetails`
+- Rate limiting (120 req/min por IP), limite de corpo (32 KB) e de busca
+- Cabeçalhos de segurança (CSP, `X-Frame-Options`, `nosniff`, etc.)
+- Movimentação de estoque atômica (sem condição de corrida)
+- Swagger apenas em desenvolvimento; erros sem stack trace
+- Build falha se houver dependência vulnerável; CI roda testes e auditorias a cada push
+
+> ⚠️ A API ainda **não possui autenticação** — não publique em rede pública sem adicioná-la.
+
 ## Endpoints
 | Método | Rota | Descrição |
 |---|---|---|

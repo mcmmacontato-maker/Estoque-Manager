@@ -34,20 +34,20 @@ onUnmounted(() => window.removeEventListener('keydown', esc))
       </div>
       <div class="modal-body">
         <label class="field"><span>Nome</span>
-          <input id="input-nome" class="input" v-model="form.nome" required autofocus placeholder="Ex.: Teclado mecânico" />
+          <input id="input-nome" class="input" v-model="form.nome" required minlength="2" maxlength="120" autofocus placeholder="Ex.: Teclado mecânico" />
         </label>
         <label class="field"><span>Categoria</span>
-          <input id="input-categoria" class="input" v-model="form.categoria" placeholder="Ex.: Periféricos" />
+          <input id="input-categoria" class="input" v-model="form.categoria" maxlength="60" placeholder="Ex.: Periféricos" />
         </label>
         <div class="grid">
           <label class="field"><span>Preço (R$)</span>
-            <input id="input-preco" class="input num" type="number" step="0.01" min="0" v-model="form.preco" />
+            <input id="input-preco" class="input num" type="number" step="0.01" min="0" max="9999999" required v-model="form.preco" />
           </label>
           <label class="field"><span>Quantidade</span>
-            <input id="input-quantidade" class="input num" type="number" min="0" v-model="form.quantidade" />
+            <input id="input-quantidade" class="input num" type="number" min="0" max="1000000" step="1" required v-model="form.quantidade" />
           </label>
           <label class="field"><span>Estoque mínimo</span>
-            <input id="input-minimo" class="input num" type="number" min="0" v-model="form.estoqueMinimo" />
+            <input id="input-minimo" class="input num" type="number" min="0" max="1000000" step="1" required v-model="form.estoqueMinimo" />
           </label>
         </div>
       </div>
