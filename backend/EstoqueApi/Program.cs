@@ -71,6 +71,7 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy(Perfis.Admin, p => p.RequireRole(Perfis.Admin));
 
 builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
+builder.Services.AddHostedService<DemoResetService>();
 
 var app = builder.Build();
 
@@ -125,6 +126,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapAuth();
+app.MapDemo();
 
 // Leitura e movimentação: qualquer usuário logado. Cadastro, edição e exclusão: só Admin.
 var api = app.MapGroup("/api/produtos").RequireRateLimiting("api").RequireAuthorization().WithTags("Produtos");

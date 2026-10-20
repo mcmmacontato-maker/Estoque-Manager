@@ -8,6 +8,7 @@ import ConfirmDialog from './components/ConfirmDialog.vue'
 
 const usuario = ref(null)
 const verificando = ref(true)
+const demo = ref({ ativo: false })
 const isAdmin = computed(() => usuario.value?.perfil === 'Admin')
 const iniciais = computed(() =>
   (usuario.value?.nome ?? '').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase())
@@ -114,7 +115,9 @@ async function sair() {
 definirAoExpirar(encerrarSessao)
 
 onMounted(async () => {
-  usuario.value = await auth.me()
+  const [u, d] = await Promise.all([auth.me(), auth.demoInfo()])
+  usuario.value = u
+  demo.value = d
   verificando.value = false
   if (usuario.value) carregar()
 })
@@ -145,6 +148,7 @@ onMounted(async () => {
           <li>Inventário</li>
           <li><Icon name="chevron" :size="14" /></li>
           <li aria-current="page">Produtos</li>
+          <li v-if="demo.ativo" class="demo-pill" :title="demo.resetMinutos ? `Dados restaurados a cada ${demo.resetMinutos} min` : 'Dados fictícios'">Demonstração</li>
         </ol>
         <div class="user">
           <div class="avatar">{{ iniciais }}</div>
@@ -152,7 +156,7 @@ onMounted(async () => {
             <span class="user-nome">{{ usuario.nome }}</span>
             <span class="user-perfil">{{ usuario.perfil }}</span>
           </div>
-          <button id="btn-sair" class="btn btn-secondary btn-sm" @click="sair">Sair</button>
+          <button id="btn-sair" class="btn btn-secondary btn-sm" @click="sair">{{ demo.ativo ? 'Trocar perfil' : 'Sair' }}</button>
         </div>
       </header>
 
@@ -297,6 +301,7 @@ nav { display: grid; gap: 2px; }
 .breadcrumb { display: flex; align-items: center; gap: 6px; list-style: none; color: var(--text-3); }
 .breadcrumb li { display: flex; }
 .breadcrumb [aria-current] { color: var(--text); font-weight: 500; }
+.demo-pill { margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--warning-soft); color: var(--warning); font-size: 12px; font-weight: 500; }
 .user { display: flex; align-items: center; gap: 10px; }
 .user-info { display: grid; line-height: 1.2; }
 .user-nome { font-weight: 500; color: var(--text); }

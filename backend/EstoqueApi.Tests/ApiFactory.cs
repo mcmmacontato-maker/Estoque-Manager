@@ -13,6 +13,7 @@ public class ApiFactory : WebApplicationFactory<Program>
 
     public int RateLimit { get; init; } = 10_000;
     public int LoginRateLimit { get; init; } = 10_000;
+    public bool Demo { get; protected set; }
 
     public const string Senha = "Senha@Teste1";
     public const string Admin = "admin@teste.local";
@@ -24,6 +25,8 @@ public class ApiFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         builder.UseSetting("RateLimit:PorMinuto", RateLimit.ToString());
         builder.UseSetting("RateLimit:LoginPorMinuto", LoginRateLimit.ToString());
+        builder.UseSetting("Demo:Ativo", Demo.ToString());
+        builder.UseSetting("Demo:ResetMinutos", "0");
         var usuarios = new[] { (Admin, "Admin"), (Operador, "Operador"), (Vitima, "Operador") };
         for (var i = 0; i < usuarios.Length; i++)
         {

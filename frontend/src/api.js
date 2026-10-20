@@ -33,7 +33,9 @@ export const auth = {
   login: (email, senha) => req('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, senha }) }, { tratar401: false }),
   logout: () => req('/api/auth/logout', { method: 'POST' }, { tratar401: false }),
   /** Retorna o usuário logado ou null (sem disparar o fluxo de sessão expirada). */
-  me: () => req('/api/auth/me', {}, { tratar401: false }).catch(() => null)
+  me: () => req('/api/auth/me', {}, { tratar401: false }).catch(() => null),
+  demoInfo: () => req('/api/demo', {}, { tratar401: false }).catch(() => ({ ativo: false })),
+  loginDemo: (perfil) => req('/api/auth/demo', { method: 'POST', body: JSON.stringify({ perfil }) }, { tratar401: false })
 }
 
 export const api = {

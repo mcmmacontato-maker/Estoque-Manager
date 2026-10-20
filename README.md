@@ -53,6 +53,16 @@ Login por e-mail e senha com sessão em **cookie HttpOnly + SameSite=Strict** (o
 | admin@estoque.local | Admin@2026 | Admin |
 | operador@estoque.local | Operador@2026 | Operador |
 
+### Modo demonstração
+Com `Demo:Ativo = true` (ligado em desenvolvimento), a tela de login mostra os botões
+**Entrar como Administrador** e **Entrar como Operador** — o visitante entra com um clique, sem senha.
+Os dados voltam ao catálogo original a cada `Demo:ResetMinutos` (padrão 60). Fora do modo demo,
+o endpoint de login rápido nem é registrado.
+
+```powershell
+$env:Demo__Ativo="true"; $env:Demo__ResetMinutos="60"   # para publicar como portfólio
+```
+
 Proteções: senha com hash PBKDF2, bloqueio de 15 min após 5 tentativas, limite de 10 logins/min por IP,
 mensagem genérica (não revela se o e-mail existe), sessão de 8h invalidada se o usuário for desativado.
 

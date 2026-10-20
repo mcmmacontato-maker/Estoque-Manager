@@ -14,11 +14,30 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         // SQLite não suporta decimal nativamente; armazenamos como double
         b.Entity<Produto>().Property(p => p.Preco).HasConversion<double>();
 
-        b.Entity<Produto>().HasData(
-            new Produto { Id = 1, Nome = "Teclado Mecânico", Categoria = "Periféricos", Preco = 349.90m, Quantidade = 25, EstoqueMinimo = 5, AtualizadoEm = new DateTime(2026, 1, 1) },
-            new Produto { Id = 2, Nome = "Mouse Gamer", Categoria = "Periféricos", Preco = 189.90m, Quantidade = 3, EstoqueMinimo = 8, AtualizadoEm = new DateTime(2026, 1, 1) },
-            new Produto { Id = 3, Nome = "Monitor 27\" 4K", Categoria = "Monitores", Preco = 2199.00m, Quantidade = 12, EstoqueMinimo = 4, AtualizadoEm = new DateTime(2026, 1, 1) },
-            new Produto { Id = 4, Nome = "SSD NVMe 1TB", Categoria = "Armazenamento", Preco = 499.00m, Quantidade = 0, EstoqueMinimo = 6, AtualizadoEm = new DateTime(2026, 1, 1) }
-        );
+        b.Entity<Produto>().HasData(ProdutosIniciais());
+    }
+
+    /// <summary>Catálogo inicial (usado na criação do banco e no reset do modo demonstração).</summary>
+    public static Produto[] ProdutosIniciais()
+    {
+        var d = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        Produto P(int id, string nome, string cat, decimal preco, int qtd, int min) =>
+            new() { Id = id, Nome = nome, Categoria = cat, Preco = preco, Quantidade = qtd, EstoqueMinimo = min, AtualizadoEm = d };
+
+        return
+        [
+            P(1,  "Teclado Mecânico ABNT2",      "Periféricos",   349.90m, 25, 5),
+            P(2,  "Mouse Sem Fio Ergonômico",    "Periféricos",   189.90m,  3, 8),
+            P(3,  "Monitor 27\" 4K IPS",         "Monitores",    2199.00m, 12, 4),
+            P(4,  "SSD NVMe 1TB",                "Armazenamento", 499.00m,  0, 6),
+            P(5,  "Headset USB com Microfone",   "Áudio",         279.00m, 18, 5),
+            P(6,  "Webcam Full HD 1080p",        "Periféricos",   329.90m,  4, 5),
+            P(7,  "Notebook 14\" i5 16GB",       "Computadores", 4899.00m,  7, 3),
+            P(8,  "Hub USB-C 7 em 1",            "Acessórios",    219.90m, 40, 10),
+            P(9,  "Cadeira Ergonômica",          "Mobiliário",   1599.00m,  2, 3),
+            P(10, "Suporte Articulado p/ Monitor","Acessórios",   259.00m, 15, 4),
+            P(11, "HD Externo 2TB",              "Armazenamento", 459.90m,  9, 4),
+            P(12, "Roteador Wi-Fi 6",            "Redes",         699.00m,  0, 2),
+        ];
     }
 }
