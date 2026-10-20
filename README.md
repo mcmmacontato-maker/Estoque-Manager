@@ -1,4 +1,4 @@
-# Estoque Manager — Vue.js + C#
+# Estoque Manager
 
 Gerenciador de produtos/estoque com **Vue 3 (Vite)** no frontend e **ASP.NET Core 8 Web API + EF Core (SQLite)** no backend.
 
