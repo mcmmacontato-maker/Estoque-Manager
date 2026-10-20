@@ -43,5 +43,13 @@ export const api = {
   criar: (p) => req(BASE, { method: 'POST', body: JSON.stringify(p) }),
   atualizar: (pid, p) => req(`${BASE}/${id(pid)}`, { method: 'PUT', body: JSON.stringify(p) }),
   movimentar: (pid, delta) => req(`${BASE}/${id(pid)}/movimentar?delta=${Number.parseInt(delta, 10)}`, { method: 'PATCH' }),
-  remover: (pid) => req(`${BASE}/${id(pid)}`, { method: 'DELETE' })
+  remover: (pid) => req(`${BASE}/${id(pid)}`, { method: 'DELETE' }),
+  painel: () => req('/api/painel'),
+  movimentacoes: ({ produtoId, tipo, dias } = {}) => {
+    const q = new URLSearchParams()
+    if (produtoId) q.set('produtoId', Number.parseInt(produtoId, 10))
+    if (tipo) q.set('tipo', tipo)
+    if (dias) q.set('dias', Number.parseInt(dias, 10))
+    return req(`/api/movimentacoes?${q}`)
+  }
 }

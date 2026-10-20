@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 using EstoqueApi.Data;
 using EstoqueApi.Infra;
@@ -81,6 +82,9 @@ using (var scope = app.Services.CreateScope())
     db.Database.EnsureCreated();
     SeedUsuarios.Executar(db, app.Configuration,
         scope.ServiceProvider.GetRequiredService<IPasswordHasher<Usuario>>(), app.Logger);
+    // Na demonstração, começa com um histórico fictício para o painel não ficar vazio
+    if (app.Configuration.GetValue<bool>("Demo:Ativo") && !db.Movimentacoes.Any())
+        await SeedMovimentacoes.GerarAsync(db);
 }
 
 // Erros não tratados viram ProblemDetails genérico, sem stack trace para o cliente
@@ -127,6 +131,7 @@ app.UseAuthorization();
 
 app.MapAuth();
 app.MapDemo();
+app.MapMovimentacoes();
 
 // Leitura e movimentação: qualquer usuário logado. Cadastro, edição e exclusão: só Admin.
 var api = app.MapGroup("/api/produtos").RequireRateLimiting("api").RequireAuthorization().WithTags("Produtos");
@@ -148,28 +153,39 @@ api.MapGet("/", async (AppDbContext db, string? busca) =>
 api.MapGet("/{id:int:min(1)}", async (int id, AppDbContext db) =>
     await db.Produtos.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id) is { } p ? Results.Ok(p) : Results.NotFound());
 
-api.MapPost("/", async (ProdutoInput input, AppDbContext db) =>
+api.MapPost("/", async (ProdutoInput input, AppDbContext db, ClaimsPrincipal user) =>
 {
     var p = new Produto();
     input.AplicarEm(p);
     db.Produtos.Add(p);
     await db.SaveChangesAsync();
+    if (p.Quantidade > 0)
+    {
+        db.Movimentacoes.Add(MovimentacoesEndpoints.Registro(p, TiposMovimentacao.Cadastro, p.Quantidade, user));
+        await db.SaveChangesAsync();
+    }
     return Results.Created($"/api/produtos/{p.Id}", p);
 }).AddEndpointFilter<ValidacaoFilter<ProdutoInput>>().RequireAuthorization(Perfis.Admin);
 
-api.MapPut("/{id:int:min(1)}", async (int id, ProdutoInput input, AppDbContext db) =>
+api.MapPut("/{id:int:min(1)}", async (int id, ProdutoInput input, AppDbContext db, ClaimsPrincipal user) =>
 {
     var p = await db.Produtos.FindAsync(id);
     if (p is null) return Results.NotFound();
+    var anterior = p.Quantidade;
     input.AplicarEm(p);
+    // Mudança manual de quantidade na edição fica registrada como ajuste de inventário
+    if (p.Quantidade != anterior)
+        db.Movimentacoes.Add(MovimentacoesEndpoints.Registro(p, TiposMovimentacao.Ajuste, p.Quantidade - anterior, user));
     await db.SaveChangesAsync();
     return Results.Ok(p);
 }).AddEndpointFilter<ValidacaoFilter<ProdutoInput>>().RequireAuthorization(Perfis.Admin);
 
-api.MapPatch("/{id:int:min(1)}/movimentar", async (int id, int delta, AppDbContext db) =>
+api.MapPatch("/{id:int:min(1)}/movimentar", async (int id, int delta, AppDbContext db, ClaimsPrincipal user) =>
 {
     if (delta == 0 || Math.Abs(delta) > 10_000)
         return Results.ValidationProblem(new Dictionary<string, string[]> { ["delta"] = ["Delta deve ser diferente de zero e no máximo 10.000 em valor absoluto."] });
+
+    await using var tx = await db.Database.BeginTransactionAsync();
 
     // Atualização atômica: evita condição de corrida entre requisições simultâneas
     var afetados = await db.Produtos
@@ -185,7 +201,13 @@ api.MapPatch("/{id:int:min(1)}/movimentar", async (int id, int delta, AppDbConte
             ? Results.Problem("Estoque insuficiente ou limite excedido.", statusCode: StatusCodes.Status409Conflict)
             : Results.NotFound();
     }
-    return Results.Ok(await db.Produtos.AsNoTracking().FirstAsync(p => p.Id == id));
+
+    var atualizado = await db.Produtos.AsNoTracking().FirstAsync(p => p.Id == id);
+    db.Movimentacoes.Add(MovimentacoesEndpoints.Registro(atualizado,
+        delta > 0 ? TiposMovimentacao.Entrada : TiposMovimentacao.Saida, delta, user));
+    await db.SaveChangesAsync();
+    await tx.CommitAsync();
+    return Results.Ok(atualizado);
 });
 
 api.MapDelete("/{id:int:min(1)}", async (int id, AppDbContext db) =>

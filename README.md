@@ -27,7 +27,7 @@ npm run dev
 ## Testes
 ```powershell
 cd backend
-dotnet test        # 25 testes de integração (CRUD, validação, concorrência, segurança)
+dotnet test        # 60 testes de integração (CRUD, auth, perfis, histórico, painel, demo, segurança)
 ```
 
 ## Segurança
@@ -75,12 +75,28 @@ $env:Seed__Usuarios__0__Perfil="Admin"
 ```
 e publique atrás de **HTTPS** (o cookie é marcado `Secure` em produção).
 
+## Telas
+| Tela | Conteúdo |
+|---|---|
+| **Painel** | Valor do estoque, entradas/saídas em 14 dias, gráfico diário, itens para repor, valor por categoria, atividade recente |
+| **Produtos** | Catálogo com busca, filtros por status, ajuste rápido +/−, cadastro/edição/exclusão (Admin) |
+| **Movimentações** | Registro de entradas e saídas com saldo previsto e histórico filtrável por produto, tipo e período |
+
+Toda alteração de quantidade (entrada, saída, ajuste na edição ou cadastro) gera um registro imutável
+com usuário, data e saldo resultante. O histórico é mantido mesmo se o produto for excluído.
+
 ## Endpoints
-| Método | Rota | Descrição |
-|---|---|---|
-| GET | /api/produtos?busca= | Lista/busca produtos |
-| GET | /api/produtos/{id} | Detalhe |
-| POST | /api/produtos | Cria |
-| PUT | /api/produtos/{id} | Atualiza |
-| PATCH | /api/produtos/{id}/movimentar?delta=N | Entrada/saída de estoque |
-| DELETE | /api/produtos/{id} | Remove |
+| Método | Rota | Descrição | Perfil |
+|---|---|---|---|
+| POST | /api/auth/login | Login com e-mail e senha | — |
+| POST | /api/auth/demo | Login rápido (só no modo demo) | — |
+| POST | /api/auth/logout | Encerra a sessão | logado |
+| GET | /api/auth/me | Usuário atual | logado |
+| GET | /api/produtos?busca= | Lista/busca produtos | logado |
+| GET | /api/produtos/{id} | Detalhe | logado |
+| POST | /api/produtos | Cria | Admin |
+| PUT | /api/produtos/{id} | Atualiza | Admin |
+| PATCH | /api/produtos/{id}/movimentar?delta=N | Entrada/saída de estoque | logado |
+| DELETE | /api/produtos/{id} | Remove | Admin |
+| GET | /api/movimentacoes?produtoId=&tipo=&dias= | Histórico de movimentações | logado |
+| GET | /api/painel | Indicadores do painel | logado |

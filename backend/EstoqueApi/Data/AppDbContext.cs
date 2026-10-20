@@ -7,14 +7,28 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<Produto> Produtos => Set<Produto>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public DbSet<Movimentacao> Movimentacoes => Set<Movimentacao>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.Entity<Usuario>().HasIndex(u => u.Email).IsUnique();
+        b.Entity<Movimentacao>().HasIndex(m => m.Data);
+        b.Entity<Movimentacao>().HasIndex(m => m.ProdutoId);
         // SQLite não suporta decimal nativamente; armazenamos como double
         b.Entity<Produto>().Property(p => p.Preco).HasConversion<double>();
 
         b.Entity<Produto>().HasData(ProdutosIniciais());
+
+        // SQLite não guarda o "Kind" da data: marca tudo como UTC para a API serializar com "Z"
+        var utc = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime, DateTime>(
+            v => v.ToUniversalTime(), v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+        var utcNull = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime?, DateTime?>(
+            v => v.HasValue ? v.Value.ToUniversalTime() : v, v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v);
+        foreach (var prop in b.Model.GetEntityTypes().SelectMany(t => t.GetProperties()))
+        {
+            if (prop.ClrType == typeof(DateTime)) prop.SetValueConverter(utc);
+            else if (prop.ClrType == typeof(DateTime?)) prop.SetValueConverter(utcNull);
+        }
     }
 
     /// <summary>Catálogo inicial (usado na criação do banco e no reset do modo demonstração).</summary>

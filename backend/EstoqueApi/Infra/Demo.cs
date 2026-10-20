@@ -79,6 +79,9 @@ public static class Demo
             .SetProperty(u => u.BloqueadoAte, (DateTime?)null), ct);
         await tx.CommitAsync(ct);
         db.ChangeTracker.Clear();
+
+        await db.Movimentacoes.ExecuteDeleteAsync(ct);
+        await SeedMovimentacoes.GerarAsync(db, ct: ct);
     }
 }
 
