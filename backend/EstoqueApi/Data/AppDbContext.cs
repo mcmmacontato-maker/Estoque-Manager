@@ -6,9 +6,11 @@ namespace EstoqueApi.Data;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<Produto> Produtos => Set<Produto>();
+    public DbSet<Usuario> Usuarios => Set<Usuario>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.Entity<Usuario>().HasIndex(u => u.Email).IsUnique();
         // SQLite não suporta decimal nativamente; armazenamos como double
         b.Entity<Produto>().Property(p => p.Preco).HasConversion<double>();
 

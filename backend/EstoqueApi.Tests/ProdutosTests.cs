@@ -5,10 +5,14 @@ using EstoqueApi.Models;
 
 namespace EstoqueApi.Tests;
 
-public class ProdutosTests : IClassFixture<ApiFactory>
+public class ProdutosTests : IClassFixture<ApiFactory>, IAsyncLifetime
 {
-    private readonly HttpClient _c;
-    public ProdutosTests(ApiFactory f) => _c = f.CreateClient();
+    private readonly ApiFactory _f;
+    private HttpClient _c = null!;
+    public ProdutosTests(ApiFactory f) => _f = f;
+
+    public async Task InitializeAsync() => _c = await _f.ClienteLogado(ApiFactory.Admin);
+    public Task DisposeAsync() => Task.CompletedTask;
 
     private static object Valido(string nome = "Produto Teste") =>
         new { nome, categoria = "Testes", preco = 10.5m, quantidade = 5, estoqueMinimo = 2 };
@@ -213,7 +217,7 @@ public class RateLimitTests
     public async Task Excesso_de_requisicoes_retorna_429()
     {
         using var f = new ApiFactory { RateLimit = 5 };
-        var c = f.CreateClient();
+        var c = await f.ClienteLogado(ApiFactory.Admin);
         HttpStatusCode ultimo = HttpStatusCode.OK;
         for (var i = 0; i < 8; i++) ultimo = (await c.GetAsync("/api/produtos")).StatusCode;
         Assert.Equal(HttpStatusCode.TooManyRequests, ultimo);

@@ -2,7 +2,9 @@ using System.Threading.RateLimiting;
 using EstoqueApi.Data;
 using EstoqueApi.Infra;
 using EstoqueApi.Models;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,12 +40,47 @@ builder.Services.AddRateLimiter(o =>
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0
         }));
+    // Limite bem mais restrito para o login (contra força bruta)
+    o.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "anon",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = builder.Configuration.GetValue("RateLimit:LoginPorMinuto", 10),
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
 });
+
+// Autenticação por cookie HttpOnly: o token não fica acessível ao JavaScript (protege contra roubo via XSS)
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(o =>
+    {
+        o.Cookie.Name = "estoque.auth";
+        o.Cookie.HttpOnly = true;
+        o.Cookie.SameSite = SameSiteMode.Strict; // bloqueia CSRF vindo de outros sites
+        o.Cookie.SecurePolicy = builder.Environment.IsProduction() ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
+        o.ExpireTimeSpan = TimeSpan.FromHours(8);
+        o.SlidingExpiration = true;
+        // API: responder 401/403 em vez de redirecionar para uma página de login
+        o.Events.OnRedirectToLogin = c => { c.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; };
+        o.Events.OnRedirectToAccessDenied = c => { c.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; };
+        o.Events.OnValidatePrincipal = AuthEndpoints.ValidarSessao;
+    });
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(Perfis.Admin, p => p.RequireRole(Perfis.Admin));
+
+builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
 
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
-    scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureCreated();
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.EnsureCreated();
+    SeedUsuarios.Executar(db, app.Configuration,
+        scope.ServiceProvider.GetRequiredService<IPasswordHasher<Usuario>>(), app.Logger);
+}
 
 // Erros não tratados viram ProblemDetails genérico, sem stack trace para o cliente
 app.UseExceptionHandler(e => e.Run(async ctx =>
@@ -84,8 +121,13 @@ else
 
 app.UseCors();
 app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
 
-var api = app.MapGroup("/api/produtos").RequireRateLimiting("api").WithTags("Produtos");
+app.MapAuth();
+
+// Leitura e movimentação: qualquer usuário logado. Cadastro, edição e exclusão: só Admin.
+var api = app.MapGroup("/api/produtos").RequireRateLimiting("api").RequireAuthorization().WithTags("Produtos");
 
 api.MapGet("/", async (AppDbContext db, string? busca) =>
 {
@@ -111,7 +153,7 @@ api.MapPost("/", async (ProdutoInput input, AppDbContext db) =>
     db.Produtos.Add(p);
     await db.SaveChangesAsync();
     return Results.Created($"/api/produtos/{p.Id}", p);
-}).AddEndpointFilter<ValidacaoFilter<ProdutoInput>>();
+}).AddEndpointFilter<ValidacaoFilter<ProdutoInput>>().RequireAuthorization(Perfis.Admin);
 
 api.MapPut("/{id:int:min(1)}", async (int id, ProdutoInput input, AppDbContext db) =>
 {
@@ -120,7 +162,7 @@ api.MapPut("/{id:int:min(1)}", async (int id, ProdutoInput input, AppDbContext d
     input.AplicarEm(p);
     await db.SaveChangesAsync();
     return Results.Ok(p);
-}).AddEndpointFilter<ValidacaoFilter<ProdutoInput>>();
+}).AddEndpointFilter<ValidacaoFilter<ProdutoInput>>().RequireAuthorization(Perfis.Admin);
 
 api.MapPatch("/{id:int:min(1)}/movimentar", async (int id, int delta, AppDbContext db) =>
 {
@@ -145,7 +187,8 @@ api.MapPatch("/{id:int:min(1)}/movimentar", async (int id, int delta, AppDbConte
 });
 
 api.MapDelete("/{id:int:min(1)}", async (int id, AppDbContext db) =>
-    await db.Produtos.Where(p => p.Id == id).ExecuteDeleteAsync() > 0 ? Results.NoContent() : Results.NotFound());
+    await db.Produtos.Where(p => p.Id == id).ExecuteDeleteAsync() > 0 ? Results.NoContent() : Results.NotFound())
+    .RequireAuthorization(Perfis.Admin);
 
 app.Run();
 

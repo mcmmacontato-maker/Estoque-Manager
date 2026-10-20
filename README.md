@@ -38,7 +38,32 @@ dotnet test        # 25 testes de integração (CRUD, validação, concorrência
 - Swagger apenas em desenvolvimento; erros sem stack trace
 - Build falha se houver dependência vulnerável; CI roda testes e auditorias a cada push
 
-> ⚠️ A API ainda **não possui autenticação** — não publique em rede pública sem adicioná-la.
+## Autenticação
+Login por e-mail e senha com sessão em **cookie HttpOnly + SameSite=Strict** (o JavaScript não acessa o token).
+
+| Perfil | Pode |
+|---|---|
+| **Admin** | Tudo: cadastrar, editar, excluir e movimentar |
+| **Operador** | Consultar e dar entrada/saída de estoque |
+
+**Usuários de desenvolvimento** (definidos em `appsettings.Development.json`):
+
+| E-mail | Senha | Perfil |
+|---|---|---|
+| admin@estoque.local | Admin@2026 | Admin |
+| operador@estoque.local | Operador@2026 | Operador |
+
+Proteções: senha com hash PBKDF2, bloqueio de 15 min após 5 tentativas, limite de 10 logins/min por IP,
+mensagem genérica (não revela se o e-mail existe), sessão de 8h invalidada se o usuário for desativado.
+
+**Produção:** não use as senhas acima. Defina os usuários iniciais por variável de ambiente, por exemplo:
+```powershell
+$env:Seed__Usuarios__0__Email="admin@suaempresa.com"
+$env:Seed__Usuarios__0__Nome="Administrador"
+$env:Seed__Usuarios__0__Senha="<senha forte>"
+$env:Seed__Usuarios__0__Perfil="Admin"
+```
+e publique atrás de **HTTPS** (o cookie é marcado `Secure` em produção).
 
 ## Endpoints
 | Método | Rota | Descrição |

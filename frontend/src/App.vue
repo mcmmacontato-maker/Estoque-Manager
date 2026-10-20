@@ -1,9 +1,16 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { api } from './api'
+import { api, auth, definirAoExpirar } from './api'
 import Icon from './components/Icon.vue'
+import Login from './components/Login.vue'
 import ProdutoForm from './components/ProdutoForm.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
+
+const usuario = ref(null)
+const verificando = ref(true)
+const isAdmin = computed(() => usuario.value?.perfil === 'Admin')
+const iniciais = computed(() =>
+  (usuario.value?.nome ?? '').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase())
 
 const produtos = ref([])
 const busca = ref('')
@@ -87,11 +94,36 @@ async function confirmarExclusao() {
   catch (e) { aviso(e.message) }
 }
 
-onMounted(carregar)
+function encerrarSessao() {
+  usuario.value = null
+  produtos.value = []
+  modalAberto.value = false
+  excluindo.value = null
+}
+
+function entrou(u) {
+  usuario.value = u
+  carregando.value = true
+  carregar()
+}
+
+async function sair() {
+  try { await auth.logout() } finally { encerrarSessao() }
+}
+
+definirAoExpirar(encerrarSessao)
+
+onMounted(async () => {
+  usuario.value = await auth.me()
+  verificando.value = false
+  if (usuario.value) carregar()
+})
 </script>
 
 <template>
-  <div class="layout">
+  <div v-if="verificando" class="boot" aria-busy="true" />
+  <Login v-else-if="!usuario" @entrou="entrou" />
+  <div v-else class="layout">
     <aside class="sidebar">
       <div class="brand">
         <div class="logo"><Icon name="box" :size="16" /></div>
@@ -115,8 +147,12 @@ onMounted(carregar)
           <li aria-current="page">Produtos</li>
         </ol>
         <div class="user">
-          <div class="avatar">MA</div>
-          <span>Maria Andrade</span>
+          <div class="avatar">{{ iniciais }}</div>
+          <div class="user-info">
+            <span class="user-nome">{{ usuario.nome }}</span>
+            <span class="user-perfil">{{ usuario.perfil }}</span>
+          </div>
+          <button id="btn-sair" class="btn btn-secondary btn-sm" @click="sair">Sair</button>
         </div>
       </header>
 
@@ -126,7 +162,7 @@ onMounted(carregar)
             <h1>Produtos</h1>
             <p>Gerencie o catálogo e os níveis de estoque.</p>
           </div>
-          <button id="btn-novo" class="btn btn-primary" @click="abrir()">
+          <button v-if="isAdmin" id="btn-novo" class="btn btn-primary" @click="abrir()">
             <Icon name="plus" />Novo produto
           </button>
         </div>
@@ -195,7 +231,7 @@ onMounted(carregar)
                   <td class="right num muted">{{ p.estoqueMinimo }}</td>
                   <td class="muted">{{ data(p.atualizadoEm) }}</td>
                   <td class="right">
-                    <div class="row-actions">
+                    <div v-if="isAdmin" class="row-actions">
                       <button :id="`btn-editar-${p.id}`" class="icon-btn" @click="abrir(p)" aria-label="Editar"><Icon name="edit" /></button>
                       <button :id="`btn-excluir-${p.id}`" class="icon-btn danger" @click="excluindo = p" aria-label="Excluir"><Icon name="trash" /></button>
                     </div>
@@ -261,7 +297,12 @@ nav { display: grid; gap: 2px; }
 .breadcrumb { display: flex; align-items: center; gap: 6px; list-style: none; color: var(--text-3); }
 .breadcrumb li { display: flex; }
 .breadcrumb [aria-current] { color: var(--text); font-weight: 500; }
-.user { display: flex; align-items: center; gap: 10px; color: var(--text-2); font-weight: 500; }
+.user { display: flex; align-items: center; gap: 10px; }
+.user-info { display: grid; line-height: 1.2; }
+.user-nome { font-weight: 500; color: var(--text); }
+.user-perfil { font-size: 12px; color: var(--text-3); }
+.btn-sm { height: 32px; padding: 0 12px; font-size: 13px; margin-left: 6px; }
+.boot { min-height: 100vh; background: var(--bg); }
 .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); border: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text-2); }
 
 /* Página */
@@ -346,6 +387,6 @@ tbody tr:hover td { background: #FCFCFD; }
 @media (max-width: 560px) {
   .kpis { grid-template-columns: 1fr; }
   .page-header { flex-direction: column; align-items: stretch; }
-  .user span { display: none; }
+  .user-info { display: none; }
 }
 </style>
